@@ -86,6 +86,20 @@
   #btn-stop  { background: #3b1a3a; color: #ede9fe; }
   #btn-stop:hover:not(:disabled)  { background: #5b2d59; }
 
+  .toggle { position:relative; display:inline-block; width:40px; height:22px; }
+  .toggle input { opacity:0; width:0; height:0; }
+  .toggle .slider {
+    position:absolute; inset:0; background:#252238; border-radius:999px;
+    cursor:pointer; transition:.2s;
+  }
+  .toggle .slider::before {
+    content:''; position:absolute;
+    width:16px; height:16px; left:3px; bottom:3px;
+    background:#6b7280; border-radius:50%; transition:.2s;
+  }
+  .toggle input:checked + .slider { background:#6d28d9; }
+  .toggle input:checked + .slider::before { transform:translateX(18px); background:#c4b5fd; }
+
   .note {
     margin-top: 16px; padding: 12px 16px;
     background: #1e1b2e; border: 1px solid #3d3460; border-radius: 12px;
@@ -131,6 +145,25 @@
     <input type="range" id="delay" min="1" max="15" value="3"
            oninput="document.getElementById('delay-lbl').textContent = this.value + '초'">
     <div class="hint-row"><span>1초</span><span>15초</span></div>
+
+    <hr>
+
+    <div class="row-label">
+      <span class="lbl">↩ 자동 줄바꿈</span>
+      <label class="toggle">
+        <input type="checkbox" id="wrap-toggle" onchange="onWrapToggle()">
+        <span class="slider"></span>
+      </label>
+    </div>
+    <div id="wrap-options" style="display:none">
+      <div class="row-label" style="margin-top:8px">
+        <span style="font-size:12px;color:#6b7280">한 줄 최대 글자 수</span>
+        <span class="val" id="wrap-lbl">24글자</span>
+      </div>
+      <input type="range" id="wrap-len" min="10" max="60" value="24"
+             oninput="document.getElementById('wrap-lbl').textContent = this.value + '글자'">
+      <div class="hint-row"><span>10글자</span><span>60글자</span></div>
+    </div>
   </div>
 
   <!-- 출력 -->
@@ -182,6 +215,34 @@ async function pasteClipboard() {
   }
 }
 
+function onWrapToggle() {
+  document.getElementById('wrap-options').style.display =
+    document.getElementById('wrap-toggle').checked ? 'block' : 'none';
+}
+
+function wrapText(text, maxLen) {
+  return text.split('\n').map(line => {
+    if (line.length <= maxLen) return line;
+    const words = line.split(' ');
+    if (words.length > 1) {
+      let result = '', cur = '';
+      for (const word of words) {
+        if (!cur) { cur = word; }
+        else if ((cur + ' ' + word).length <= maxLen) { cur += ' ' + word; }
+        else { result += (result ? '\n' : '') + cur; cur = word; }
+      }
+      if (cur) result += (result ? '\n' : '') + cur;
+      return result;
+    } else {
+      // 공백 없는 텍스트(한글 등) — 글자 수 기준으로 끊기
+      let result = '';
+      for (let i = 0; i < line.length; i += maxLen)
+        result += (result ? '\n' : '') + line.slice(i, i + maxLen);
+      return result;
+    }
+  }).join('\n');
+}
+
 function clearText() {
   src.value = ''; src.dispatchEvent(new Event('input'));
   output.value = '';
@@ -220,8 +281,12 @@ function setButtons(running) {
 }
 
 async function startTyping() {
-  const text = src.value;
+  let text = src.value;
   if (!text.trim()) { setStatus('⚠️ 텍스트를 먼저 입력해주세요', 'error'); return; }
+  if (document.getElementById('wrap-toggle').checked) {
+    const maxLen = parseInt(document.getElementById('wrap-len').value);
+    text = wrapText(text, maxLen);
+  }
 
   stopped = false; paused = false; idx = 0;
   chars = [...text];
