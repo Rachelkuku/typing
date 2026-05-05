@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Auto Typer ⌨️</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #0f0d1a;
+    color: #ede9fe;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 40px 16px 60px;
+  }
+
+  .wrap { width: 100%; max-width: 520px; }
+
+  h1 { font-size: 30px; color: #c4b5fd; letter-spacing: -0.5px; }
+  .sub { font-size: 13px; color: #6b7280; margin: 6px 0 24px; }
+
+  .card {
+    background: #1e1b2e;
+    border: 1px solid #3d3460;
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 12px;
+  }
+
+  .row-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  .row-label .lbl { font-size: 13px; font-weight: 600; color: #a78bfa; }
+  .row-label .val { font-size: 12px; color: #c4b5fd; }
+
+  textarea {
+    width: 100%; height: 190px;
+    background: #0f0d1a; color: #ede9fe;
+    border: 1px solid #6d28d9; border-radius: 10px;
+    padding: 12px; font-size: 13px; font-family: inherit;
+    line-height: 1.6; resize: vertical; outline: none;
+  }
+  textarea:focus { border-color: #8b5cf6; }
+
+  .btn-row { display: flex; gap: 8px; margin-top: 10px; }
+
+  button {
+    cursor: pointer; border: none; border-radius: 8px;
+    font-size: 13px; font-weight: 600;
+    padding: 9px 16px; transition: background .15s, opacity .15s;
+  }
+  .btn-purple { background: #8b5cf6; color: #0f0d1a; }
+  .btn-purple:hover:not(:disabled) { background: #a78bfa; }
+  .btn-gray   { background: #252238; color: #ede9fe; }
+  .btn-gray:hover:not(:disabled)   { background: #3d3460; }
+  button:disabled { opacity: .38; cursor: not-allowed; }
+
+  input[type=range] {
+    width: 100%; accent-color: #8b5cf6; cursor: pointer; margin: 2px 0;
+  }
+  .hint-row { display: flex; justify-content: space-between; font-size: 10px; color: #6b7280; margin-top: 2px; }
+
+  hr { border: none; border-top: 1px solid #3d3460; margin: 14px 0; }
+
+  #status {
+    text-align: center; font-size: 14px; font-weight: 600;
+    color: #6b7280; padding: 8px 0 6px;
+    min-height: 36px;
+  }
+
+  .prog-wrap { background: #252238; border-radius: 999px; height: 6px; margin-bottom: 14px; overflow: hidden; }
+  #prog       { height: 100%; background: #8b5cf6; border-radius: 999px; width: 0; transition: width .3s; }
+
+  .ctrl { display: flex; gap: 8px; }
+  .ctrl button { flex: 1; padding: 14px; font-size: 14px; border-radius: 12px; }
+  #btn-start { background: #8b5cf6; color: #0f0d1a; }
+  #btn-start:hover:not(:disabled) { background: #a78bfa; }
+  #btn-pause { background: #252238; color: #ede9fe; }
+  #btn-pause:hover:not(:disabled) { background: #3d3460; }
+  #btn-stop  { background: #3b1a3a; color: #ede9fe; }
+  #btn-stop:hover:not(:disabled)  { background: #5b2d59; }
+
+  .note {
+    margin-top: 16px; padding: 12px 16px;
+    background: #1e1b2e; border: 1px solid #3d3460; border-radius: 12px;
+    font-size: 12px; color: #6b7280; line-height: 1.6;
+  }
+  .note strong { color: #a78bfa; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>⌨️ Auto Typer</h1>
+  <p class="sub">텍스트를 붙여넣고 원하는 입력창에 자동으로 타이핑하세요</p>
+
+  <!-- 텍스트 입력 -->
+  <div class="card">
+    <div class="row-label">
+      <span class="lbl">타이핑할 텍스트</span>
+      <span class="val" id="char-count">0 글자</span>
+    </div>
+    <textarea id="src" placeholder="여기에 텍스트를 입력하거나 클립보드에서 붙여넣으세요…"></textarea>
+    <div class="btn-row">
+      <button class="btn-purple" onclick="pasteClipboard()">📋 클립보드 붙여넣기</button>
+      <button class="btn-gray"   onclick="clearText()">🗑 지우기</button>
+    </div>
+  </div>
+
+  <!-- 설정 -->
+  <div class="card">
+    <div class="row-label">
+      <span class="lbl">⚡ 타이핑 속도</span>
+      <span class="val" id="speed-lbl">50ms / 글자</span>
+    </div>
+    <input type="range" id="speed" min="5" max="500" value="50"
+           oninput="document.getElementById('speed-lbl').textContent = this.value + 'ms / 글자'">
+    <div class="hint-row"><span>빠름 (5ms)</span><span>느림 (500ms)</span></div>
+
+    <hr>
+
+    <div class="row-label">
+      <span class="lbl">⏱ 시작 딜레이</span>
+      <span class="val" id="delay-lbl">3초</span>
+    </div>
+    <input type="range" id="delay" min="1" max="15" value="3"
+           oninput="document.getElementById('delay-lbl').textContent = this.value + '초'">
+    <div class="hint-row"><span>1초</span><span>15초</span></div>
+  </div>
+
+  <!-- 출력 -->
+  <div class="card" id="output-card" style="display:none">
+    <div class="row-label">
+      <span class="lbl">📝 타이핑 출력</span>
+      <button class="btn-gray" style="padding:4px 10px;font-size:11px" onclick="copyOutput()">복사</button>
+    </div>
+    <textarea id="output" style="height:140px;border-color:#3d3460" readonly></textarea>
+  </div>
+
+  <!-- 상태 -->
+  <div id="status">대기 중</div>
+  <div class="prog-wrap"><div id="prog"></div></div>
+
+  <!-- 컨트롤 -->
+  <div class="ctrl">
+    <button id="btn-start" onclick="startTyping()">▶ 시작</button>
+    <button id="btn-pause" onclick="togglePause()" disabled>⏸ 일시정지</button>
+    <button id="btn-stop"  onclick="stopTyping()"  disabled>⏹ 중단</button>
+  </div>
+
+  <div class="note">
+    💡 <strong>사용법:</strong> 텍스트 입력 → 속도·딜레이 설정 → 시작 클릭 → 딜레이 동안 타이핑할 입력창 클릭 후 대기<br>
+    타이핑은 현재 포커스된 입력창에 자동으로 입력됩니다.
+  </div>
+</div>
+
+<script>
+const src      = document.getElementById('src');
+const output   = document.getElementById('output');
+const statusEl = document.getElementById('status');
+const progEl   = document.getElementById('prog');
+const btnStart = document.getElementById('btn-start');
+const btnPause = document.getElementById('btn-pause');
+const btnStop  = document.getElementById('btn-stop');
+
+src.addEventListener('input', () => {
+  document.getElementById('char-count').textContent = src.value.length.toLocaleString() + ' 글자';
+});
+
+async function pasteClipboard() {
+  try {
+    const text = await navigator.clipboard.readText();
+    src.value = text;
+    src.dispatchEvent(new Event('input'));
+  } catch {
+    setStatus('⚠️ 클립보드 접근 불가 — 브라우저에서 직접 붙여넣기(Ctrl+V) 해주세요', 'error');
+  }
+}
+
+function clearText() {
+  src.value = ''; src.dispatchEvent(new Event('input'));
+  output.value = '';
+  document.getElementById('output-card').style.display = 'none';
+  setStatus('대기 중', 'idle');
+  progEl.style.width = '0%';
+}
+
+function copyOutput() {
+  navigator.clipboard.writeText(output.value).catch(() => {
+    output.select(); document.execCommand('copy');
+  });
+}
+
+// ── 타이핑 엔진 ──
+let timer = null;
+let paused = false;
+let stopped = false;
+let idx = 0;
+let chars = [];
+let speed = 50;
+
+const colors = {
+  idle:'#6b7280', countdown:'#fbbf24', typing:'#34d399',
+  paused:'#fbbf24', done:'#34d399', stopped:'#f87171', error:'#f87171'
+};
+function setStatus(msg, state='idle') {
+  statusEl.textContent = msg;
+  statusEl.style.color = colors[state] || '#6b7280';
+}
+
+function setButtons(running) {
+  btnStart.disabled = running;
+  btnPause.disabled = !running;
+  btnStop.disabled  = !running;
+}
+
+async function startTyping() {
+  const text = src.value;
+  if (!text.trim()) { setStatus('⚠️ 텍스트를 먼저 입력해주세요', 'error'); return; }
+
+  stopped = false; paused = false; idx = 0;
+  chars = [...text];
+  speed = parseInt(document.getElementById('speed').value);
+  const delay = parseInt(document.getElementById('delay').value);
+
+  output.value = '';
+  document.getElementById('output-card').style.display = 'block';
+  progEl.style.width = '0%';
+  setButtons(true);
+  btnPause.textContent = '⏸ 일시정지';
+
+  // 카운트다운
+  for (let i = delay; i > 0; i--) {
+    if (stopped) return;
+    setStatus(`⏳ ${i}초 후 시작 — 타이핑할 입력창을 클릭해 포커스 해주세요…`, 'countdown');
+    await sleep(1000);
+  }
+  if (stopped) return;
+
+  setStatus('⌨️ 타이핑 중…', 'typing');
+  typeNext();
+}
+
+function typeNext() {
+  if (stopped || idx >= chars.length) {
+    if (!stopped) {
+      setStatus('✅ 타이핑 완료!', 'done');
+      progEl.style.width = '100%';
+    }
+    setButtons(false);
+    return;
+  }
+  if (paused) return;
+
+  const ch = chars[idx];
+
+  // 포커스된 요소에 직접 입력 시도
+  const active = document.activeElement;
+  if (active && active !== document.body &&
+      (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) {
+    if (active.isContentEditable) {
+      document.execCommand('insertText', false, ch);
+    } else {
+      const start = active.selectionStart;
+      const end   = active.selectionEnd;
+      active.value = active.value.slice(0, start) + ch + active.value.slice(end);
+      active.selectionStart = active.selectionEnd = start + 1;
+      active.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  }
+
+  // 출력창에도 미러링
+  output.value += ch;
+  output.scrollTop = output.scrollHeight;
+
+  idx++;
+  const pct = Math.round(idx / chars.length * 100);
+  progEl.style.width = pct + '%';
+  if (idx % 20 === 0) setStatus(`⌨️ 타이핑 중… ${pct}% (${idx}/${chars.length})`, 'typing');
+
+  timer = setTimeout(typeNext, speed);
+}
+
+function togglePause() {
+  if (!paused) {
+    paused = true;
+    clearTimeout(timer);
+    setStatus('⏸ 일시정지됨', 'paused');
+    btnPause.textContent = '▶ 계속';
+  } else {
+    paused = false;
+    btnPause.textContent = '⏸ 일시정지';
+    setStatus('⌨️ 타이핑 중…', 'typing');
+    typeNext();
+  }
+}
+
+function stopTyping() {
+  stopped = true;
+  clearTimeout(timer);
+  setStatus('⏹ 중단됨', 'stopped');
+  setButtons(false);
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+</script>
+</body>
+</html>
